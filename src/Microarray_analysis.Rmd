@@ -30,6 +30,7 @@ In Victor's notes he said pre-analysis included: RMA correction, batch correctio
 knitr::opts_chunk$set(echo = TRUE)
 library(affy)
 library(limma)
+#adding a test line
 ```
 
 
