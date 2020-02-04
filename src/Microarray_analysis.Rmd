@@ -1,0 +1,53 @@
+---
+title: "DE Gene Analysis"
+author: "Kayleigh Ingersoll"
+date: "January 28, 2020"
+output: html_document
+---
+
+Unmet need in GVHD is to control T cell pathogenesis specifically against alloantigens, without just controlling overall proliferation and activation (current prophylaxis). Goal is to maintain T regulatory cells and protective functions against pathogens)
+
+Research Questions:
+- What are genes upregulated in the tissues during aGVHD? 
+- What pathways are most involved/disrupted in aGVHD compared to normal immune reconstituation?
+  - specifically immune pathways?
+- What are the upstream regulators of genes involved in aGVHD pathogenesis?
+- what are genes/pathways that consistently appear in multiple analyses?
+
+
+Raw Data needed: 
+- AutovGVHD for lung, liver
+- HCvGVHD for lung, liver, colon
+- AutovHC for lung, liver
+
+Experimental Design that generated the data:
+NHP receive BMT from mis-matched donor, BMT from self (autologous) or did not receive BMT (HC). Necropsy resulted in tissue samples from the Liver, Lung, Blood, and Colon (only some samples) for each transplant group. These were sorted for CD3+CD20- T cells. RNA was isolated from these cells and run on GeneChip Rhesus Maqaque Genome Array and QC (I don't know what) was performed. 
+
+In Victor's notes he said pre-analysis included: RMA correction, batch correction, filtering, annotation. Analysis included: PCA, DE, WGCNA, Pathway Analysis using DAVID 6.8
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(affy)
+library(limma)
+```
+
+
+Explore CEL file with Jim
+```{r install_packages, eval=F}
+if (!requireNamespace("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+
+BiocManager::install("affy")
+BiocManager::install("limma")
+
+```
+
+
+```{r Load_Data}
+c_dirMicroarray= "C:\\Users\\ch195452\\Documents\\Microarray_with_Jim\\data\\explore_microarray"
+li_CelFiles<- Sys.glob(paste0(c_dirMicroarray, "\\*.CEL"))
+li_CelFiles
+
+```
+
