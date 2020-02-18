@@ -31,6 +31,7 @@ knitr::opts_chunk$set(echo = TRUE)
 library(affy)
 library(limma)
 #adding a test line
+c_dirProject<- "C:\\Users\\ch195452\\Documents\\Microarray_with_Jim"
 ```
 
 
@@ -42,6 +43,8 @@ if (!requireNamespace("BiocManager", quietly = TRUE))
 BiocManager::install("affy")
 BiocManager::install("limma")
 
+
+library(affy)
 ```
 
 
@@ -50,5 +53,77 @@ c_dirMicroarray= "C:\\Users\\ch195452\\Documents\\Microarray_with_Jim\\data\\exp
 li_CelFiles<- Sys.glob(paste0(c_dirMicroarray, "\\*.CEL"))
 li_CelFiles
 
+
+esetGvHD<-justRMA(phenoData = NULL,
+                  celfile.path= c_dirMicroarray)
+
 ```
+
+Question for Victor:
+- one or two-color microarray?
+- do we have batches? How many samples? Were they on separate chips? etc.
+- do we have a sample sheet with all the metadata for each sample? 
+- anything else to know about the data?
+
+c_dirProject<- "C:\\Users\\ch195452\\Documents\\Microarray_with_Jim"
+
+```{r load_excel_file, include=FALSE}
+
+library(readxl)
+library(tidyverse)
+xlsxMetadata<- paste0(c_dirProject,"\\data\\metadata\\20190212_Sample_directory_MASTER.xlsx")
+excel_sheets(xlsxMetadata)
+
+tbTissues_6 <- read_xlsx(xlsxMetadata,sheet="TISSUES_6")
+tbTissues_7 <- read_xlsx(xlsxMetadata,sheet="TISSUES_7")
+
+# What fields do these have in common?
+intersect(colnames(tbTissues_6),colnames(tbTissues_7))
+setdiff(colnames(tbTissues_6),colnames(tbTissues_7))
+
+vstrColumns_To_Keep <- c( intersect(colnames(tbTissues_6),colnames(tbTissues_7)),
+                          "Include_Tissues","Tissues_Group","SampleSet")
+
+# Tissues 7 has a bunch of extra data - Pathology scores etc. We can check in with Victor at some point to see if that is relevant to the project.
+setdiff(colnames(tbTissues_7),colnames(tbTissues_6))
+
+tbTissues_6 <- tbTissues_6 %>% dplyr::rename(Include_Tissues=`INCLUDE TISSUES_6`,Tissues_Group=TISSUES_6_Group) %>%
+  mutate(SampleSet="Tissues_6") %>% dplyr::select(vstrColumns_To_Keep)
+
+tbTissues_7 <- tbTissues_7 %>% dplyr::rename(Include_Tissues=`INCLUDE TISSUES_7`,Tissues_Group=TISSUES_7_Group) %>%
+  mutate(SampleSet="Tissues_7") %>% dplyr::select(vstrColumns_To_Keep )
+
+tbMetadata <- rbind(tbTissues_6,tbTissues_7)
+
+
+ggplot(tbMetadata,aes(x=Group)) + geom_bar(stat="count") + coord_flip() + theme_light()
+ggplot(tbMetadata,aes(x=SampleSet)) + geom_bar(stat="count")  + theme_light()
+
+
+```
+
+```{r, input_CEL_files, include=FALSE}
+
+tbMetadata<- tbMetadata %>% 
+  mutate(HaveFile= file.exists(paste0(c_dirProject, "\\data\\microarray_data\\CEL_Files\\", FileName)))
+table(tbMetadata$HaveFile)
+
+vstrFiles<-tbMetadata$FileName
+vstrSamples<-tbMetadata$ID
+
+esetTest<-affy::justRMA(celfile.path=paste0(c_dirProject,"\\data\\microarray_data\\CEL_Files\\"), filenames= vstrFiles)
+
+
+tbMetadataunique<- tbMetadata %>%
+  distinct(FileName, .keep_all = T)
+#only kept stuff from Tissue6 and I think stuff from tissue7 is better
+
+tbMetadataunique2<- tbMetadata %>%
+  arrange(FileName, desc(SampleSet == 'Tissues_7')) %>% 
+  distinct(FileName, .keep_all = T)
+#if duplicate, kept the Tissues_7 file with better info
+
+distinct
+```
+
 
