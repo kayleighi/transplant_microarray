@@ -1,0 +1,202 @@
+---
+title: "Microarray_Processing"
+author: "Kayleigh Ingersoll"
+date: "5/27/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+
+library(VennDiagram)
+library(dendextend)
+#library(Vennerable)#
+#library(probedeeper) 
+library(openxlsx)
+library(simpleaffy)
+library(xtable)
+#library(sva) #
+library(ggplot2)
+library(ggrepel)
+#library(made4) #
+library(affyPLM)
+library(affy)
+
+```
+
+Load in Data to SimpleAffy
+
+```{r}
+setwd("~/Documents/Harvard/Kean_Lab/Microarray_Practice/Data/All")
+read.csv("060820_Kayleigh_Analysis.txt")
+raw.data<- read.affy("060820_Kayleigh_Analysis.txt")
+x.rma<-call.exprs(raw.data, "rma")
+x.mas5<- call.exprs(raw.data, "mas5")
+  
+
+```
+
+
+#Retreiving Intensities
+```{r}
+expr<-exprs(raw.data)
+expr[1:5, ]
+```
+
+
+#Retreiving Annotations
+```{r}
+ph<-raw.data@phenoData
+ph$sample
+ph@data
+
+
+feat<-raw.data@featureData
+feat@data
+
+exp<-raw.data@experimentData
+exp
+#experimentData can be filled with information about this experiment
+
+#how to retrieve the name of the CDF file associated with the arrays
+cdfName(raw.data)
+
+#how to retrieve the IDs of the probe sets represented on the arrays
+featureNames(raw.data) 
+
+#how to retrieve the number of probe sets represented on the arrays
+length(featureNames(raw.data)) #52865
+
+#how to retrieve the number of probes represented on the arrays
+length(probeNames(raw.data))  #668485
+
+#should have 10-20 probes per gene, 668485/52865=12.645
+
+```
+
+#Rename Files to Coordinate with GroupName
+
+
+```{r}
+ph@data[ ,1] <- c("autoblood1", "autoblood2", "autoblood3", "autoblood4", "autoliver1", "autoliver2", "autoliver3", "autoliver4", "autolungs1", "autolungs2", "autolungs3", "autolungs4", "hcblood1", "hcblood2", "hcblood3", "hcblood4", "hcblood5", "hcblood6", "hcblood7", "hcblood8", "hcblood9", "hcblood10", "hcblood11", "hcblood12", "hcblood13", "hcblood14", "hcblood15", "hcblood16", "hcblood17", "hcblood18", "hcblood19", "hcblood20", "hcblood21", "hcblood22", "hcblood23", "hcblood24", "hccolon1", "hccolon2", "hccolon3", "hccolon4", "hccolon5", "hccolon6", "hcliver1", "hcliver2", "hcliver3", "hcliver4", "hcliver5", "hcliver6", "hcliver7", "hcliver8", "hcliver9", "hcliver10 ", "hclungs1", "hclungs2", "hclungs3", "hclungs4", "hclungs5", "hclungs6", "hclungs7", "hclungs8", "hclungs9", "gvhdblood1", "gvhdblood2", "gvhdblood3", "gvhdblood4", "gvhdblood5", "gvhdblood6", "gvhdblood7", "gvhdblood8", "gvhdblood9", "gvhdblood10", "gvhdblood11", "gvhdblood12", "gvhdcolon1", "gvhdcolon2", "gvhdcolon3", "gvhdcolon4", "gvhdcolon5", "gvhdliver1", "gvhdliver2", "gvhdliver3", "gvhdliver4", "gvhdliver5", "gvhdliver6", "gvhdliver7", "gvhdliver8", "gvhdliver9", "gvhdlungs1", "gvhdlungs2", "gvhdlungs3", "gvhdlungs4", "gvhdlungs5", "gvhdlungs6", "gvhdlungs7")
+
+
+```
+
+
+
+
+#QC
+* Average background intensity.
+* Percent of genes that are detected in the sample.
+* Range of Scale Factors
+* 3' to 5' ratios
+```{r}
+qcs<- qc(raw.data)
+
+qcplot<- plot(qcs)
+pdf(file="QC_Plot_New.pdf", width = 8, height=40)
+plot(qcs)
+dev.off()
+
+#average background should be comparable
+avbg(qcs)
+
+#scale factors should be within 3 fold of each other
+sfs(qcs)
+
+#the percentage of spots that generate a significant signal (significantly higher than background) according to the Affymetrix detection algorithm, should be similar and should not be lower than 20%
+percent.present(qcs)
+
+#The last quality measure are the 3'/5' ratios of the quality control probe sets representing housekeeping genes (genes expressed in any tissue in any organism) like actin and GADPH. For these housekeeping genes 3 probe sets are available: one at the 5' end of the gene, one at the middle and one at the 3' end of the gene. You can retrieve them by using ratios() method. Affymetrix suggests that 3'/5' ratios below 3 show acceptable RNA degradation and recommend caution if that value is exceeded for a given array.
+
+ratios(qcs)
+
+#Histogram to compare probes across samples
+
+pmexp = pm(raw.data)
+
+sampleNames = vector()
+logs = vector()
+for (i in 13:61)
+{
+sampleNames = c(sampleNames,rep(ph@data[i,1],dim(pmexp)[1]))
+logs = c(logs,log2(pmexp[,i]))
+}
+
+logData = data.frame(logInt=logs,sampleName=sampleNames)
+
+dataHist2 = ggplot(logData, aes(logInt, colour = sampleName)) 
+dataHist2 + geom_density()
+
+memory.limit()
+memory.limit(24000)
+
+#MA Plots
+
+for (i in 1:12)
+{
+name = paste("MAplot",i,".jpg",sep="")
+jpeg(name)
+MAplot(raw.data,which=i)
+dev.off()
+}
+
+
+```
+
+#Normalization
+
+```{r}
+memory.limit(24000)
+
+library(gcrma)
+data.gcrma<-gcrma(raw.data)
+
+```
+
+
+Correcting for Batch Effects
+```{r}
+if (!requireNamespace("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+
+BiocManager::install("sva")
+library(sva)
+library(ggfortify)
+
+batch<- ph@data$Batch
+
+modcombat = model.matrix(~1, data=data.gcrma)
+combat_data.gcrma = ComBat(dat=data.gcrma, batch=batch, mod=modcombat, par.prior=TRUE, prior.plots=FALSE)
+
+?sva
+?combat
+
+head(combat_data.gcrma)
+```
+
+
+```{r}
+if (!requireNamespace("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+
+BiocManager::install("genefilter")
+library(genefilter)
+
+annotation(combat_data.gcrma)<-"Rhesus"
+celfiles.filtered <- nsFilter(combat_data.gcrma, require.entrez=FALSE, remove.dupEntrez=FALSE, var.cutoff=0.5, var.func=var)
+finaleset.filt<-celfiles.filtered$eset
+```
+
+
+
+
+#Filtering by Expression Measures
+
+```{r}
+get.array.subset(data.gcrma, "group", c("Healthy.Contorl.Blood", "Healthy.Control.Liver", "Healthy.Control.Lungs", "Healthy.Control.Colon"))
+
+```
+
